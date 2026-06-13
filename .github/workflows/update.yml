@@ -1,0 +1,35 @@
+name: Update Market Heat Data
+
+on:
+  workflow_dispatch:   # tombol "Run workflow" manual
+
+permissions:
+  contents: write       # izin agar hasil bisa disimpan kembali ke repo
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ambil kode dari repo
+        uses: actions/checkout@v4
+
+      - name: Siapkan Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install bahan
+        run: pip install -r requirements.txt
+
+      - name: Jalankan pengambilan data FRED
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: python src/fetch_fred.py
+
+      - name: Simpan hasil ke repo
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add data/
+          git commit -m "Update data FRED" || echo "Tidak ada perubahan"
+          git push
