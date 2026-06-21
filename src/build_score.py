@@ -1,7 +1,7 @@
 """
 build_score.py
-FRED + CAPE + FINRA margin + NAAIM -> percentile -> Market Heat Score 0-100.
-Versi 0.4: menambah NAAIM (positioning manajer) ke pilar Sentiment.
+FRED + CAPE + FINRA + NAAIM + AAII -> percentile -> Market Heat Score 0-100.
+Versi 0.5: pilar Sentiment kini = VIX + NAAIM + AAII.
 """
 import os
 import json
@@ -23,6 +23,7 @@ def join_csv(path, col):
 HAS_CAPE = join_csv("data/cape.csv", "cape")
 HAS_FINRA = join_csv("data/margin_debt.csv", "margin_debt")
 HAS_NAAIM = join_csv("data/naaim.csv", "naaim")
+HAS_AAII = join_csv("data/aaii.csv", "aaii_spread")
 
 sig = pd.DataFrame(index=df.index)
 
@@ -34,10 +35,12 @@ sig["mom_3m"] = df["sp500"].pct_change(3)
 sig["mom_12m"] = df["sp500"].pct_change(12)
 sig["dist_12m_avg"] = df["sp500"] / df["sp500"].rolling(12).mean() - 1
 
-# Sentiment (VIX rendah = panas; NAAIM tinggi = crowded = panas)
+# Sentiment (VIX rendah = panas; NAAIM tinggi = crowded; AAII spread tinggi = bullish crowding)
 sig["vix_inv"] = -df["vix"]
 if HAS_NAAIM:
     sig["naaim"] = df["naaim"]
+if HAS_AAII:
+    sig["aaii"] = df["aaii_spread"]
 
 # Credit / Liquidity / Leverage
 sig["hy_inv"] = -df["hy_oas"]
@@ -63,7 +66,7 @@ pillar = pd.DataFrame(index=df.index)
 pillar["valuation"] = pct[["valuation"]].mean(axis=1)
 pillar["momentum"] = pct[["mom_3m", "mom_12m", "dist_12m_avg"]].mean(axis=1)
 
-sent_cols = ["vix_inv"] + (["naaim"] if HAS_NAAIM else [])
+sent_cols = ["vix_inv"] + (["naaim"] if HAS_NAAIM else []) + (["aaii"] if HAS_AAII else [])
 pillar["sentiment"] = pct[sent_cols].mean(axis=1)
 
 credit_cols = ["hy_inv", "hy_chg_3m_inv", "nfci_inv"] + (["margin_yoy"] if HAS_FINRA else [])
@@ -100,6 +103,7 @@ with open("docs/data.js", "w") as f:
     f.write('const HAS_CAPE = ' + ("true" if HAS_CAPE else "false") + ';\n')
     f.write('const HAS_FINRA = ' + ("true" if HAS_FINRA else "false") + ';\n')
     f.write('const HAS_NAAIM = ' + ("true" if HAS_NAAIM else "false") + ';\n')
+    f.write('const HAS_AAII = ' + ("true" if HAS_AAII else "false") + ';\n')
 
-print("Heat Score v0.4. CAPE:", HAS_CAPE, "| FINRA:", HAS_FINRA, "| NAAIM:", HAS_NAAIM)
+print("Heat Score v0.5. CAPE:", HAS_CAPE, "FINRA:", HAS_FINRA, "NAAIM:", HAS_NAAIM, "AAII:", HAS_AAII)
 print(out.tail(6))
