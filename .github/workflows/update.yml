@@ -24,6 +24,9 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Jalankan pengambilan data FRED
+      
+      - name: Ambil Shiller CAPE
+        run: python src/fetch_cape.py
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: python src/fetch_fred.py
