@@ -1,7 +1,7 @@
 """
 build_score.py
 FRED bulanan + Shiller CAPE -> percentile -> Market Heat Score 0-100.
-Versi 0.2: Valuation kini memakai CAPE asli (bukan proxy).
+Versi 0.2: Valuation memakai CAPE asli (bukan proxy).
 """
 import os
 import json
@@ -77,6 +77,7 @@ def regime(x):
 pillar["regime"] = pillar["heat_score"].apply(regime)
 
 out = pillar.round(1)
+out = out[~out.index.duplicated(keep="last")].sort_index()   # <-- pengaman duplikat
 out.to_csv("data/heat_score_history.csv")
 
 os.makedirs("docs", exist_ok=True)
