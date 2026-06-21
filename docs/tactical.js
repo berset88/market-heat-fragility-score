@@ -1,0 +1,1 @@
+const TACTICAL = {"as_of": "2026-06-18", "p_rally": 0.0717, "p_decline": 0.016, "net": 0.0557, "auc_rally": 0.709, "auc_decline": 0.458, "contributions": {"vix": 0.4306, "hy_oas": -4.4587, "hy_oas_3m_chg": 2.0282, "sp_3m_mom": 1.8788, "dgs2_3m_chg": -0.7697, "breakeven": 0.0678, "nfci": -0.2535, "naaim": -0.4071, "aaii": 0.3944}, "n_samples": 681, "history_start": "2023-09-13"};
