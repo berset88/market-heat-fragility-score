@@ -43,6 +43,9 @@ jobs:
       - name: Hitung Heat Score
         run: python src/build_score.py
 
+      - name: Hitung Tactical 5% overlay
+        run: python src/build_tactical.py
+
       - name: Simpan hasil ke repo
         run: |
           git config user.name "github-actions"
