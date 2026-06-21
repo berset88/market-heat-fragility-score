@@ -1,7 +1,9 @@
 name: Update Market Heat Data
 
 on:
-  workflow_dispatch:   # tombol "Run workflow" manual
+  workflow_dispatch:        # tombol manual tetap bisa
+  schedule:
+    - cron: "0 6 5 * *"     # tiap tanggal 5, jam 06:00 UTC
 
 permissions:
   contents: write       # izin agar hasil bisa disimpan kembali ke repo
