@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Market Heat &amp; Fragility Score</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --cream:#EFE6D8; --paper:#FBF6EC; --line:#DBCDB5;
+    --ink:#3D3025; --muted:#7A6A55; --brown:#8A6D45; --brown-dk:#6B4F2E;
+    --cold:#6E9B5E; --normal:#C2A23C; --warm:#D08A1E; --over:#C2622E; --extreme:#A23A22;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--cream);color:var(--ink);
+    font-family:Georgia,'Times New Roman',serif;line-height:1.5;padding:24px 16px}
+  .wrap{max-width:980px;margin:0 auto}
+  header{border-bottom:2px solid var(--brown);padding-bottom:14px;margin-bottom:18px}
+  h1{font-size:30px;letter-spacing:-0.5px;color:var(--brown-dk)}
+  .sub{color:var(--muted);font-size:14px;margin-top:4px;font-family:Arial,sans-serif}
+  .updated{font-size:12px;color:var(--muted);font-family:Arial,sans-serif;margin-top:6px}
+  .banner{background:#F3E2C0;border:1px solid #D9B871;border-left:5px solid var(--warm);
+    color:#6B4A12;padding:12px 14px;border-radius:6px;font-size:13px;
+    font-family:Arial,sans-serif;margin-bottom:20px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:10px;
+    padding:20px;box-shadow:0 1px 3px rgba(107,79,46,0.08)}
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--brown);
+    font-family:Arial,sans-serif;margin-bottom:14px}
+  .score-num{font-size:60px;font-weight:bold;text-align:center;line-height:1;color:var(--brown-dk)}
+  .regime-pill{display:block;width:fit-content;margin:10px auto 0;padding:5px 16px;
+    border-radius:20px;color:#fff;font-family:Arial,sans-serif;font-size:14px;font-weight:bold}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:16px;
+    font-family:Arial,sans-serif;font-size:11px;color:var(--muted)}
+  .legend span{display:flex;align-items:center;gap:4px}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+  footer{margin-top:18px;font-size:12px;color:var(--muted);font-family:Arial,sans-serif;
+    border-top:1px solid var(--line);padding-top:12px}
+  canvas{max-width:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Market Heat &amp; Fragility Score</h1>
+    <div class="sub">US equity overheating monitor &middot; composite of valuation, momentum, sentiment, credit/liquidity &amp; macro</div>
+    <div class="updated" id="updated"></div>
+  </header>
+
+  <div class="banner">
+    <strong>Version 0.1 — PARTIAL.</strong> Built on free FRED data only.
+    Valuation is a temporary proxy (Shiller CAPE not yet included), and sentiment uses VIX only.
+    Treat this as a framework test, <strong>not a trading signal</strong>. Full data lands in a later phase.
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Current Reading</h2>
+      <svg id="gauge" viewBox="0 0 300 185" style="width:100%;height:auto"></svg>
+      <div class="score-num" id="scoreNum">--</div>
+      <span class="regime-pill" id="regimePill">--</span>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--cold)"></i>Cold &lt;30</span>
+        <span><i class="dot" style="background:var(--normal)"></i>Normal 30–60</span>
+        <span><i class="dot" style="background:var(--warm)"></i>Warm 60–75</span>
+        <span><i class="dot" style="background:var(--over)"></i>Overheated 75–85</span>
+        <span><i class="dot" style="background:var(--extreme)"></i>Extreme &gt;85</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Pillar Breakdown</h2>
+      <canvas id="pillarChart" height="240"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Heat Score — History</h2>
+    <canvas id="histChart" height="300"></canvas>
+  </div>
+
+  <footer>
+    Data: Federal Reserve Economic Data (FRED). Scores computed by deterministic code (no AI estimation).
+    Methodology: expanding-percentile of each indicator, weighted by pillar.
+  </footer>
+</div>
+
+<script src="data.js"></script>
+<script>
+const ZONES=[{lo:0,hi:30,c:'#6E9B5E'},{lo:30,hi:60,c:'#C2A23C'},{lo:60,hi:75,c:'#D08A1E'},{lo:75,hi:85,c:'#C2622E'},{lo:85,hi:100,c:'#A23A22'}];
+function zoneColor(v){for(const z of ZONES){if(v<z.hi)return z.c;}return '#A23A22';}
+
+if(typeof HEAT_DATA!=='undefined' && HEAT_DATA.length){
+  const cur=HEAT_DATA[HEAT_DATA.length-1];
+  document.getElementById('updated').textContent='Last data point: '+(typeof LAST_UPDATED!=='undefined'?LAST_UPDATED:cur.date);
+  document.getElementById('scoreNum').textContent=cur.heat_score.toFixed(1);
+  const pill=document.getElementById('regimePill');
+  pill.textContent=cur.regime;pill.style.background=zoneColor(cur.heat_score);
+
+  // ---- Gauge (SVG semicircle) ----
+  const cx=150,cy=160,r=120;
+  function polar(a){const rad=a*Math.PI/180;return {x:cx+r*Math.cos(rad),y:cy-r*Math.sin(rad)};}
+  function ang(v){return 180*(1-v/100);}
+  function arc(a0,a1){const s=polar(a0),e=polar(a1);const large=(a0-a1)>180?1:0;
+    return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large} 1 ${e.x} ${e.y}`;}
+  let svg='';
+  ZONES.forEach(z=>{svg+=`<path d="${arc(ang(z.lo),ang(z.hi))}" fill="none" stroke="${z.c}" stroke-width="20"/>`;});
+  const na=ang(cur.heat_score)*Math.PI/180;
+  const nx=cx+95*Math.cos(na),ny=cy-95*Math.sin(na);
+  svg+=`<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#3D3025" stroke-width="4"/>`;
+  svg+=`<circle cx="${cx}" cy="${cy}" r="7" fill="#3D3025"/>`;
+  document.getElementById('gauge').innerHTML=svg;
+
+  // ---- Pillar chart ----
+  const pLabels=['Valuation','Momentum','Sentiment','Credit / Liquidity','Macro Gap'];
+  const pKeys=['valuation','momentum','sentiment','credit_liq','macro_gap'];
+  const pVals=pKeys.map(k=>cur[k]);
+  new Chart(document.getElementById('pillarChart'),{
+    type:'bar',
+    data:{labels:pLabels,datasets:[{data:pVals,backgroundColor:pVals.map(zoneColor),borderRadius:4}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false}},
+      scales:{x:{min:0,max:100,grid:{color:'#E5DAC6'}},y:{grid:{display:false}}}}
+  });
+
+  // ---- History chart with zone bands ----
+  const bands={id:'bands',beforeDraw(c){const{ctx,chartArea,scales}=c;if(!chartArea)return;const y=scales.y;
+    ZONES.forEach(z=>{const yt=y.getPixelForValue(z.hi),yb=y.getPixelForValue(z.lo);
+      ctx.fillStyle=z.c+'22';ctx.fillRect(chartArea.left,yt,chartArea.right-chartArea.left,yb-yt);});}};
+  new Chart(document.getElementById('histChart'),{
+    type:'line',
+    data:{labels:HEAT_DATA.map(d=>d.date),
+      datasets:[{data:HEAT_DATA.map(d=>d.heat_score),borderColor:'#6B4F2E',borderWidth:2,
+        pointRadius:0,tension:0.2,fill:false}]},
+    options:{plugins:{legend:{display:false}},
+      scales:{y:{min:0,max:100,grid:{color:'#E5DAC6'}},
+        x:{ticks:{maxTicksLimit:8,color:'#7A6A55'},grid:{display:false}}}},
+    plugins:[bands]
+  });
+}
+</script>
+</body>
+</html>
