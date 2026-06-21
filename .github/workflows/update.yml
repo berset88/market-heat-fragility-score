@@ -37,6 +37,9 @@ jobs:
       - name: Ambil NAAIM exposure
         run: python src/fetch_naaim.py
 
+      - name: Ambil AAII sentiment
+        run: python src/fetch_aaii.py
+
       - name: Hitung Heat Score
         run: python src/build_score.py
 
