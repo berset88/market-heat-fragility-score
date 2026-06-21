@@ -34,6 +34,9 @@ jobs:
       - name: Ambil FINRA margin debt
         run: python src/fetch_finra.py
 
+      - name: Ambil NAAIM exposure
+        run: python src/fetch_naaim.py
+
       - name: Hitung Heat Score
         run: python src/build_score.py
 
