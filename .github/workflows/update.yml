@@ -31,6 +31,9 @@ jobs:
       - name: Ambil Shiller CAPE
         run: python src/fetch_cape.py
 
+      - name: Ambil FINRA margin debt
+        run: python src/fetch_finra.py
+
       - name: Hitung Heat Score
         run: python src/build_score.py
 
