@@ -16,7 +16,7 @@ def find_excel():
         + glob.glob("manual/*.xlsx")
         + glob.glob("data/manual/*.xlsx")
     )
-    candidates = [c for c in candidates if "margin_debt" not in c]
+    candidates = [c for c in candidates if "margin" in c.lower() and "margin_debt" not in c]
     return sorted(candidates)[-1] if candidates else None
 
 def main():
