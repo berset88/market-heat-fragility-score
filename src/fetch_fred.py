@@ -26,6 +26,7 @@ SERIES = {
     "T10YIE": "us_10y_breakeven",
     "NFCI": "nfci",
     "BAMLH0A0HYM2": "hy_oas",
+    "BAA10Y": "baa_spread",
 }
 
 START_DATE = "1990-01-01"
