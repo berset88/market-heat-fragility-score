@@ -107,7 +107,9 @@
       <span class="regime-pill" id="tacPill">--</span>
       <div class="tac-probs" id="tacProbs"></div>
     </div>
-    <canvas id="tacChart" height="260"></canvas>
+    <div style="position:relative;height:300px;width:100%;max-width:760px;margin:0 auto">
+      <canvas id="tacChart"></canvas>
+    </div>
     <div class="tac-meta" id="tacMeta"></div>
   </div>
 
@@ -170,17 +172,9 @@ if(typeof HEAT_DATA!=='undefined' && HEAT_DATA.length){
       interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{display:false},
-        tooltip:{
-          backgroundColor:'#3D3025',
-          callbacks:{
-            title:items=>items[0].label,
-            label:item=>'Heat: '+item.raw.toFixed(1)
-          }
-        },
-        zoom:{
-          zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'x'},
-          pan:{enabled:true,mode:'x'}
-        }
+        tooltip:{backgroundColor:'#3D3025',
+          callbacks:{title:items=>items[0].label,label:item=>'Heat: '+item.raw.toFixed(1)}},
+        zoom:{zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'x'},pan:{enabled:true,mode:'x'}}
       },
       scales:{
         y:{min:0,max:100,grid:{color:'#E5DAC6'}},
@@ -220,16 +214,28 @@ if(typeof TACTICAL!=='undefined'){
   const labels=entries.map(e=>LABELS[e[0]]||e[0]);
   const vals=entries.map(e=>e[1]);
   const colors=vals.map(v=>v>=0?'#C2A23C':'#C2622E');
-  const maxabs=Math.max(...vals.map(Math.abs))*1.15||1;
+  const maxabs=Math.max(...vals.map(Math.abs))*1.25||1;
+
+  const valueLabels={id:'valueLabels',afterDatasetsDraw(c){
+    const{ctx}=c;const meta=c.getDatasetMeta(0);
+    ctx.save();ctx.font='11px Arial';ctx.textBaseline='middle';ctx.fillStyle='#7A6A55';
+    meta.data.forEach((bar,i)=>{const v=vals[i];
+      ctx.textAlign=v>=0?'left':'right';
+      ctx.fillText(v.toFixed(2),bar.x+(v>=0?4:-4),bar.y);});
+    ctx.restore();
+  }};
+
   new Chart(document.getElementById('tacChart'),{
     type:'bar',
-    data:{labels,datasets:[{data:vals,backgroundColor:colors,borderRadius:3}]},
-    options:{indexAxis:'y',plugins:{legend:{display:false},
+    data:{labels,datasets:[{data:vals,backgroundColor:colors,borderRadius:3,barThickness:16}]},
+    options:{indexAxis:'y',maintainAspectRatio:false,
+      plugins:{legend:{display:false},
       tooltip:{callbacks:{label:c=>(c.raw>=0?'toward rally +':'toward decline ')+c.raw.toFixed(2)}}},
       scales:{x:{min:-maxabs,max:maxabs,grid:{color:'#E5DAC6'},
         title:{display:true,text:'← toward decline        toward rally →',color:'#7A6A55',
           font:{family:'Arial'}}},
-        y:{grid:{display:false}}}}
+        y:{grid:{display:false},ticks:{font:{size:11}}}}},
+    plugins:[valueLabels]
   });
 }
 </script>
