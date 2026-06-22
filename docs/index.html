@@ -168,4 +168,33 @@ if(typeof TACTICAL!=='undefined'){
   const[lab,col]=netLabel(T.net);
   const tn=document.getElementById('tacNet');
   tn.textContent=(netPct>=0?'+':'')+netPct.toFixed(1)+'%';tn.style.color=col;
-  const tp=document.getElementById('t
+  const tp=document.getElementById('tacPill');tp.textContent=lab;tp.style.background=col;
+  document.getElementById('tacProbs').textContent=
+    'P(rally ≥ +5%) '+(T.p_rally*100).toFixed(0)+'%  ·  P(decline ≥ −5%) '+(T.p_decline*100).toFixed(0)+'%';
+  document.getElementById('tacMeta').textContent=
+    'Directional risk-context · 20% weight · as of '+T.as_of+' · history from '+T.history_start+
+    ' · '+T.n_samples+' samples · AUC rally '+T.auc_rally+' / decline '+T.auc_decline;
+
+  const LABELS={sp_3m_mom:'S&P 500 3m momentum',credit:'Credit spread (Baa−10Y)',
+    credit_3m_chg:'Credit spread 3m chg',dgs2_3m_chg:'2Y yield 3m chg',
+    nfci:'Financial conditions (NFCI)',breakeven:'10Y breakeven infl.',
+    curve_10y2y:'Yield curve (10Y−2Y)',vix:'VIX'};
+  const entries=Object.entries(T.contributions).sort((a,b)=>b[1]-a[1]);
+  const labels=entries.map(e=>LABELS[e[0]]||e[0]);
+  const vals=entries.map(e=>e[1]);
+  const colors=vals.map(v=>v>=0?'#C2A23C':'#C2622E');
+  const maxabs=Math.max(...vals.map(Math.abs))*1.15||1;
+  new Chart(document.getElementById('tacChart'),{
+    type:'bar',
+    data:{labels,datasets:[{data:vals,backgroundColor:colors,borderRadius:3}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>(c.raw>=0?'toward rally +':'toward decline ')+c.raw.toFixed(2)}}},
+      scales:{x:{min:-maxabs,max:maxabs,grid:{color:'#E5DAC6'},
+        title:{display:true,text:'← toward decline        toward rally →',color:'#7A6A55',
+          font:{family:'Arial'}}},
+        y:{grid:{display:false}}}}
+  });
+}
+</script>
+</body>
+</html>
