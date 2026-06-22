@@ -23,6 +23,7 @@ f["sp_3m_mom"] = d["sp500"] / d["sp500"].shift(N) - 1
 f["dgs2_3m_chg"] = d["us_2y_yield"] - d["us_2y_yield"].shift(N)
 f["breakeven"] = d["us_10y_breakeven"]
 f["nfci"] = d["nfci"]
+f["curve_10y2y"] = d["us_10y_yield"] - d["us_2y_yield"]
 
 # Pilih seri kredit berhistori panjang: utamakan baa_spread, fallback hy_oas
 credit_col = None
