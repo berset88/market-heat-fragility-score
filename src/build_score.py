@@ -1,10 +1,12 @@
 """
 build_score.py
-FRED + CAPE + FINRA + NAAIM + AAII -> percentile -> Market Heat Score 0-100.
-Versi 0.5: pilar Sentiment kini = VIX + NAAIM + AAII.
+FRED + CAPE + S&P(long) + FINRA + NAAIM + AAII -> percentile -> Market Heat Score 0-100.
+Versi 0.6:
+- Momentum & Macro Gap memakai S&P 500 bulanan panjang (multpl, 1871+) -> sejarah ~1994.
+- Pilar kredit memakai BAA10Y (Baa-10Y, sejarah panjang) menggantikan HY OAS
+  yang kini dibatasi FRED ke 3 tahun.
 """
-import os
-import json
+import os, json
 import pandas as pd
 import numpy as np
 
@@ -20,37 +22,42 @@ def join_csv(path, col):
         return True
     return False
 
-HAS_CAPE = join_csv("data/cape.csv", "cape")
-HAS_FINRA = join_csv("data/margin_debt.csv", "margin_debt")
-HAS_NAAIM = join_csv("data/naaim.csv", "naaim")
-HAS_AAII = join_csv("data/aaii.csv", "aaii_spread")
+HAS_CAPE   = join_csv("data/cape.csv", "cape")
+HAS_SPLONG = join_csv("data/sp500_monthly.csv", "sp500_long")
+HAS_FINRA  = join_csv("data/margin_debt.csv", "margin_debt")
+HAS_NAAIM  = join_csv("data/naaim.csv", "naaim")
+HAS_AAII   = join_csv("data/aaii.csv", "aaii_spread")
+
+# Seri harga S&P: utamakan seri panjang multpl; kredit: utamakan BAA10Y
+spx = df["sp500_long"] if HAS_SPLONG else df["sp500"]
+credit_series = "baa_spread" if "baa_spread" in df.columns else "hy_oas"
 
 sig = pd.DataFrame(index=df.index)
 
 # Valuation
 sig["valuation"] = df["cape"] if HAS_CAPE else -df["us_10y_yield"]
 
-# Momentum
-sig["mom_3m"] = df["sp500"].pct_change(3)
-sig["mom_12m"] = df["sp500"].pct_change(12)
-sig["dist_12m_avg"] = df["sp500"] / df["sp500"].rolling(12).mean() - 1
+# Momentum (seri panjang)
+sig["mom_3m"] = spx.pct_change(3)
+sig["mom_12m"] = spx.pct_change(12)
+sig["dist_12m_avg"] = spx / spx.rolling(12).mean() - 1
 
-# Sentiment (VIX rendah = panas; NAAIM tinggi = crowded; AAII spread tinggi = bullish crowding)
+# Sentiment
 sig["vix_inv"] = -df["vix"]
 if HAS_NAAIM:
     sig["naaim"] = df["naaim"]
 if HAS_AAII:
     sig["aaii"] = df["aaii_spread"]
 
-# Credit / Liquidity / Leverage
-sig["hy_inv"] = -df["hy_oas"]
-sig["hy_chg_3m_inv"] = -df["hy_oas"].diff(3)
+# Credit / Liquidity / Leverage (kredit = BAA10Y; spread RENDAH = complacency = panas)
+sig["credit_inv"] = -df[credit_series]
+sig["credit_chg_3m_inv"] = -df[credit_series].diff(3)
 sig["nfci_inv"] = -df["nfci"]
 if HAS_FINRA:
     sig["margin_yoy"] = df["margin_debt"].pct_change(12)
 
-# Macro Reality Gap
-sig["macro_gap"] = df["sp500"].pct_change(12) - df["consumer_sentiment"].pct_change(12)
+# Macro Reality Gap (seri panjang)
+sig["macro_gap"] = spx.pct_change(12) - df["consumer_sentiment"].pct_change(12)
 
 def expanding_percentile(s, min_periods=36):
     out = pd.Series(index=s.index, dtype="float64")
@@ -69,7 +76,7 @@ pillar["momentum"] = pct[["mom_3m", "mom_12m", "dist_12m_avg"]].mean(axis=1)
 sent_cols = ["vix_inv"] + (["naaim"] if HAS_NAAIM else []) + (["aaii"] if HAS_AAII else [])
 pillar["sentiment"] = pct[sent_cols].mean(axis=1)
 
-credit_cols = ["hy_inv", "hy_chg_3m_inv", "nfci_inv"] + (["margin_yoy"] if HAS_FINRA else [])
+credit_cols = ["credit_inv", "credit_chg_3m_inv", "nfci_inv"] + (["margin_yoy"] if HAS_FINRA else [])
 pillar["credit_liq"] = pct[credit_cols].mean(axis=1)
 
 pillar["macro_gap"] = pct[["macro_gap"]].mean(axis=1)
@@ -105,5 +112,7 @@ with open("docs/data.js", "w") as f:
     f.write('const HAS_NAAIM = ' + ("true" if HAS_NAAIM else "false") + ';\n')
     f.write('const HAS_AAII = ' + ("true" if HAS_AAII else "false") + ';\n')
 
-print("Heat Score v0.5. CAPE:", HAS_CAPE, "FINRA:", HAS_FINRA, "NAAIM:", HAS_NAAIM, "AAII:", HAS_AAII)
+print("Heat Score v0.6. SP_long:", HAS_SPLONG, "| credit:", credit_series,
+      "| CAPE:", HAS_CAPE, "FINRA:", HAS_FINRA, "NAAIM:", HAS_NAAIM, "AAII:", HAS_AAII)
+print("history mulai:", dash["date"].iloc[0])
 print(out.tail(6))
