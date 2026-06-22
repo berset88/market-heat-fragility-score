@@ -25,7 +25,7 @@
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
   @media(max-width:760px){.grid{grid-template-columns:1fr}}
   .card{background:var(--paper);border:1px solid var(--line);border-radius:10px;
-    padding:20px;box-shadow:0 1px 3px rgba(107,79,46,0.08)}
+    padding:20px;box-shadow:0 1px 3px rgba(107,79,46,0.08);margin-bottom:18px}
   .card h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--brown);
     font-family:Arial,sans-serif;margin-bottom:14px}
   .score-num{font-size:60px;font-weight:bold;text-align:center;line-height:1;color:var(--brown-dk)}
@@ -38,6 +38,11 @@
   footer{margin-top:18px;font-size:12px;color:var(--muted);font-family:Arial,sans-serif;
     border-top:1px solid var(--line);padding-top:12px}
   canvas{max-width:100%}
+  .tac-head{text-align:center;margin-bottom:14px}
+  .tac-net{font-size:48px;font-weight:bold;line-height:1;color:var(--brown-dk)}
+  .tac-probs{font-family:Arial,sans-serif;font-size:13px;color:var(--muted);margin-top:8px}
+  .tac-meta{font-family:Arial,sans-serif;font-size:11px;color:var(--muted);margin-top:12px;
+    border-top:1px solid var(--line);padding-top:8px;text-align:center;line-height:1.6}
 </style>
 </head>
 <body>
@@ -50,8 +55,8 @@
 
   <div class="banner">
     <strong>Version 0.5.</strong> Five pillars live: valuation (Shiller CAPE), momentum,
-    sentiment (VIX + NAAIM + AAII), credit/leverage (HY spreads, NFCI, FINRA margin debt), and macro gap.
-    Put/call is optional (paid post-2019). Headline reflects the in-progress month (provisional);
+    sentiment (VIX + NAAIM + AAII), credit/leverage (Baa spread, NFCI, FINRA margin debt), and macro gap.
+    Tactical overlay below is a 20%-weight risk-context layer. Headline reflects the in-progress month (provisional);
     anchor decisions on the last <em>completed</em> month.
     Use as <strong>risk context</strong>, not a standalone trading signal.
   </div>
@@ -81,13 +86,26 @@
     <canvas id="histChart" height="300"></canvas>
   </div>
 
+  <div class="card">
+    <h2>Tactical 5% Asymmetry — Net Probability (3-month)</h2>
+    <div class="tac-head">
+      <div class="tac-net" id="tacNet">--</div>
+      <span class="regime-pill" id="tacPill">--</span>
+      <div class="tac-probs" id="tacProbs"></div>
+    </div>
+    <canvas id="tacChart" height="260"></canvas>
+    <div class="tac-meta" id="tacMeta"></div>
+  </div>
+
   <footer>
-    Data: Federal Reserve Economic Data (FRED). Scores computed by deterministic code (no AI estimation).
+    Data: FRED, Shiller, FINRA, NAAIM, AAII. Scores computed by deterministic code (no AI estimation).
     Methodology: expanding-percentile of each indicator, weighted by pillar.
+    Tactical overlay: walk-forward logistic model, FRED daily history.
   </footer>
 </div>
 
 <script src="data.js"></script>
+<script src="tactical.js"></script>
 <script>
 const ZONES=[{lo:0,hi:30,c:'#6E9B5E'},{lo:30,hi:60,c:'#C2A23C'},{lo:60,hi:75,c:'#D08A1E'},{lo:75,hi:85,c:'#C2622E'},{lo:85,hi:100,c:'#A23A22'}];
 function zoneColor(v){for(const z of ZONES){if(v<z.hi)return z.c;}return '#A23A22';}
@@ -99,7 +117,6 @@ if(typeof HEAT_DATA!=='undefined' && HEAT_DATA.length){
   const pill=document.getElementById('regimePill');
   pill.textContent=cur.regime;pill.style.background=zoneColor(cur.heat_score);
 
-  // ---- Gauge (SVG semicircle) ----
   const cx=150,cy=160,r=120;
   function polar(a){const rad=a*Math.PI/180;return {x:cx+r*Math.cos(rad),y:cy-r*Math.sin(rad)};}
   function ang(v){return 180*(1-v/100);}
@@ -113,7 +130,6 @@ if(typeof HEAT_DATA!=='undefined' && HEAT_DATA.length){
   svg+=`<circle cx="${cx}" cy="${cy}" r="7" fill="#3D3025"/>`;
   document.getElementById('gauge').innerHTML=svg;
 
-  // ---- Pillar chart ----
   const pLabels=['Valuation','Momentum','Sentiment','Credit / Liquidity','Macro Gap'];
   const pKeys=['valuation','momentum','sentiment','credit_liq','macro_gap'];
   const pVals=pKeys.map(k=>cur[k]);
@@ -124,7 +140,6 @@ if(typeof HEAT_DATA!=='undefined' && HEAT_DATA.length){
       scales:{x:{min:0,max:100,grid:{color:'#E5DAC6'}},y:{grid:{display:false}}}}
   });
 
-  // ---- History chart with zone bands ----
   const bands={id:'bands',beforeDraw(c){const{ctx,chartArea,scales}=c;if(!chartArea)return;const y=scales.y;
     ZONES.forEach(z=>{const yt=y.getPixelForValue(z.hi),yb=y.getPixelForValue(z.lo);
       ctx.fillStyle=z.c+'22';ctx.fillRect(chartArea.left,yt,chartArea.right-chartArea.left,yb-yt);});}};
@@ -139,6 +154,18 @@ if(typeof HEAT_DATA!=='undefined' && HEAT_DATA.length){
     plugins:[bands]
   });
 }
-</script>
-</body>
-</html>
+
+if(typeof TACTICAL!=='undefined'){
+  const T=TACTICAL;
+  const netPct=T.net*100;
+  function netLabel(x){
+    if(x>0.20)return['Strong upside asymmetry','#6E9B5E'];
+    if(x>0.05)return['Mild bullish asymmetry','#8FA15B'];
+    if(x>=-0.05)return['Neutral','#C2A23C'];
+    if(x>=-0.20)return['Mild downside asymmetry','#C2622E'];
+    return['Strong downside asymmetry','#A23A22'];
+  }
+  const[lab,col]=netLabel(T.net);
+  const tn=document.getElementById('tacNet');
+  tn.textContent=(netPct>=0?'+':'')+netPct.toFixed(1)+'%';tn.style.color=col;
+  const tp=document.getElementById('t
