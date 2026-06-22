@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Market Heat &amp; Fragility Score</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
 <style>
   :root{
     --cream:#EFE6D8; --paper:#FBF6EC; --line:#DBCDB5;
@@ -14,7 +16,7 @@
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--cream);color:var(--ink);
     font-family:Georgia,'Times New Roman',serif;line-height:1.5;padding:24px 16px}
-  .wrap{max-width:980px;margin:0 auto}
+  .wrap{max-width:1100px;margin:0 auto}
   header{border-bottom:2px solid var(--brown);padding-bottom:14px;margin-bottom:18px}
   h1{font-size:30px;letter-spacing:-0.5px;color:var(--brown-dk)}
   .sub{color:var(--muted);font-size:14px;margin-top:4px;font-family:Arial,sans-serif}
@@ -28,6 +30,12 @@
     padding:20px;box-shadow:0 1px 3px rgba(107,79,46,0.08);margin-bottom:18px}
   .card h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--brown);
     font-family:Arial,sans-serif;margin-bottom:14px}
+  .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .card-head h2{margin-bottom:0}
+  .btn{font-family:Arial,sans-serif;font-size:11px;color:var(--brown-dk);background:#EFE6D8;
+    border:1px solid var(--line);border-radius:5px;padding:4px 10px;cursor:pointer}
+  .btn:hover{background:#E6D8C0}
+  .hint{font-family:Arial,sans-serif;font-size:11px;color:var(--muted);margin-top:8px;text-align:right}
   .score-num{font-size:60px;font-weight:bold;text-align:center;line-height:1;color:var(--brown-dk)}
   .regime-pill{display:block;width:fit-content;margin:10px auto 0;padding:5px 16px;
     border-radius:20px;color:#fff;font-family:Arial,sans-serif;font-size:14px;font-weight:bold}
@@ -82,8 +90,14 @@
   </div>
 
   <div class="card">
-    <h2>Heat Score — History</h2>
-    <canvas id="histChart" height="300"></canvas>
+    <div class="card-head">
+      <h2>Heat Score — History</h2>
+      <button class="btn" id="resetZoom">Reset zoom</button>
+    </div>
+    <div style="position:relative;height:380px;width:100%">
+      <canvas id="histChart"></canvas>
+    </div>
+    <div class="hint">Scroll to zoom · drag to pan · hover for value</div>
   </div>
 
   <div class="card">
@@ -136,23 +150,46 @@ if(typeof HEAT_DATA!=='undefined' && HEAT_DATA.length){
   new Chart(document.getElementById('pillarChart'),{
     type:'bar',
     data:{labels:pLabels,datasets:[{data:pVals,backgroundColor:pVals.map(zoneColor),borderRadius:4}]},
-    options:{indexAxis:'y',plugins:{legend:{display:false}},
+    options:{indexAxis:'y',plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>'Percentile: '+c.raw.toFixed(1)}}},
       scales:{x:{min:0,max:100,grid:{color:'#E5DAC6'}},y:{grid:{display:false}}}}
   });
 
   const bands={id:'bands',beforeDraw(c){const{ctx,chartArea,scales}=c;if(!chartArea)return;const y=scales.y;
     ZONES.forEach(z=>{const yt=y.getPixelForValue(z.hi),yb=y.getPixelForValue(z.lo);
       ctx.fillStyle=z.c+'22';ctx.fillRect(chartArea.left,yt,chartArea.right-chartArea.left,yb-yt);});}};
-  new Chart(document.getElementById('histChart'),{
+
+  const histChart=new Chart(document.getElementById('histChart'),{
     type:'line',
     data:{labels:HEAT_DATA.map(d=>d.date),
-      datasets:[{data:HEAT_DATA.map(d=>d.heat_score),borderColor:'#6B4F2E',borderWidth:2,
-        pointRadius:0,tension:0.2,fill:false}]},
-    options:{plugins:{legend:{display:false}},
-      scales:{y:{min:0,max:100,grid:{color:'#E5DAC6'}},
-        x:{ticks:{maxTicksLimit:8,color:'#7A6A55'},grid:{display:false}}}},
+      datasets:[{label:'Heat Score',data:HEAT_DATA.map(d=>d.heat_score),
+        borderColor:'#6B4F2E',borderWidth:2,pointRadius:0,pointHoverRadius:4,
+        pointHoverBackgroundColor:'#6B4F2E',tension:0.2,fill:false}]},
+    options:{
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#3D3025',
+          callbacks:{
+            title:items=>items[0].label,
+            label:item=>'Heat: '+item.raw.toFixed(1)
+          }
+        },
+        zoom:{
+          zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'x'},
+          pan:{enabled:true,mode:'x'}
+        }
+      },
+      scales:{
+        y:{min:0,max:100,grid:{color:'#E5DAC6'}},
+        x:{ticks:{maxTicksLimit:10,color:'#7A6A55',maxRotation:0,autoSkip:true},grid:{display:false}}
+      }
+    },
     plugins:[bands]
   });
+  document.getElementById('resetZoom').onclick=()=>histChart.resetZoom();
 }
 
 if(typeof TACTICAL!=='undefined'){
