@@ -1,21 +1,21 @@
 {
-  "as_of": "2026-09-04",
-  "p_rally": 0.2762,
-  "p_decline": 0.4617,
-  "net": -0.1855,
-  "auc_rally": 0.706,
-  "auc_decline": 0.568,
+  "as_of": "2026-10-02",
+  "p_rally": 0.267,
+  "p_decline": 0.5219,
+  "net": -0.2549,
+  "auc_rally": 0.687,
+  "auc_decline": 0.534,
   "contributions": {
-    "vix": -0.0461,
-    "sp_3m_mom": -0.1354,
-    "dgs2_3m_chg": -0.4449,
-    "breakeven": -0.3947,
-    "nfci": -1.2375,
-    "curve_10y2y": 0.2682,
-    "credit": -0.2142,
-    "credit_3m_chg": -0.2841
+    "vix": -0.0549,
+    "sp_3m_mom": 0.0111,
+    "dgs2_3m_chg": -1.608,
+    "breakeven": -0.432,
+    "nfci": -1.0669,
+    "curve_10y2y": 0.3563,
+    "credit": -0.1403,
+    "credit_3m_chg": 0.2008
   },
   "n_samples": 2529,
-  "history_start": "2016-12-01",
+  "history_start": "2016-12-29",
   "credit_series": "baa_spread"
 }
